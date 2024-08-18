@@ -3,11 +3,17 @@ workspace:
     tunic-dict:
       path: ./
       dependencies:
-        - console
         - effect
+        - foldable-traversable
         - halogen
+        - halogen-svg-elems
+        - maybe
+        - ordered-collections
         - prelude
-      test_dependencies: []
+        - strings
+        - transformers
+      test_dependencies:
+        - console
       build_plan:
         - aff
         - arrays
@@ -37,6 +43,7 @@ workspace:
         - gen
         - halogen
         - halogen-subscriptions
+        - halogen-svg-elems
         - halogen-vdom
         - identity
         - integers
@@ -939,6 +946,12 @@ packages:
       - refs
       - safe-coerce
       - unsafe-reference
+  halogen-svg-elems:
+    type: registry
+    version: 8.0.0
+    integrity: sha256-NtZ30NoNyadVEsRcdY0zvm2yyahxUTgpioDNVz5gEIA=
+    dependencies:
+      - halogen
   halogen-vdom:
     type: registry
     version: 8.0.0

@@ -1,17 +1,26 @@
 package:
   name: tunic-dict
   dependencies:
-    - console
     - effect
     - prelude
     - halogen
+    - ordered-collections
+    - transformers
+    - strings
+    - maybe
+    - halogen-svg-elems
+    - foldable-traversable
   test:
     main: Test.Main
-    dependencies: []
+    dependencies:
+      - console
+    strict: true
   bundle:
     minify: true
     platform: browser
     type: "app"
+  build:
+    strict: true
 workspace:
   packageSet:
     registry: 57.2.0
