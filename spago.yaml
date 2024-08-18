@@ -1,0 +1,18 @@
+package:
+  name: tunic-dict
+  dependencies:
+    - console
+    - effect
+    - prelude
+    - halogen
+  test:
+    main: Test.Main
+    dependencies: []
+  bundle:
+    minify: true
+    platform: browser
+    type: "app"
+workspace:
+  packageSet:
+    registry: 57.2.0
+  extraPackages: {}
