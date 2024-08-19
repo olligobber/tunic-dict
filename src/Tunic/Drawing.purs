@@ -9,7 +9,7 @@ import Data.Foldable (fold, foldMap)
 import Data.Int (toNumber)
 
 import Drawing
-  ( Drawing, WO, Vertical(..), Horizontal(..)
+  ( Drawing, Offset, Vertical(..), Horizontal(..), Point2D(..)
   , point2D, moveOffset, line, circle
   )
 import Tunic.Glyph
@@ -50,13 +50,13 @@ bottomCornerY = Vertical 20.0
 circleCenterY :: Vertical
 circleCenterY = Vertical 21.0
 
-strokeWidth :: WO Number
+strokeWidth :: Offset Number
 strokeWidth = pure 1.0
 
-circleRadius :: WO Number
+circleRadius :: Offset Number
 circleRadius = pure 1.0
 
-drawSegment :: Segment -> WO Drawing
+drawSegment :: Segment -> Offset Drawing
 drawSegment (Vowel TopRight) =
   line <$> point2D middleX topCornerY <*> point2D rightX topFaceY <*> strokeWidth
 drawSegment (Vowel BottomRight) =
@@ -84,14 +84,14 @@ drawSegment (Consonant UpLeft) =
 drawSegment (Circ CircSegment) =
   circle <$> point2D middleX circleCenterY <*> circleRadius <*> strokeWidth
 
-drawGlyph :: Glyph -> WO Drawing
+drawGlyph :: Glyph -> Offset Drawing
 drawGlyph glyph =
   foldMap drawSegment glyph <>
   (line <$> point2D leftX lineY <*> point2D rightX lineY <*> strokeWidth)
 
-drawWord :: Word -> WO Drawing
-drawWord = mapWithIndex drawWithIndex >>> fold
+drawWord :: Word -> Drawing
+drawWord = mapWithIndex drawWithIndex >>> fold >>> (_ $ mempty)
   where
   drawWithIndex i g = moveOffset
-    { x : Horizontal $ 12.0 * toNumber i, y : mempty }
+    (Point2D (Horizontal $ 12.0 * toNumber i) mempty)
     (drawGlyph g)

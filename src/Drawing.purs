@@ -2,19 +2,17 @@ module Drawing
   ( Drawing
   , Horizontal(..)
   , Vertical(..)
-  , Point2D
+  , Point2D(..)
   , Offset
-  , WO
   , point2D
   , moveOffset
   , line
   , circle
   , renderDrawing
-  , simpleOffset
 ) where
 
 import Prelude
-  ( ($), (<>), (+), (*), (/), (-), map, min, max, negate, mempty
+  ( ($), (<>), (+), map, min, max, negate, mempty
   , class Eq, class Ord, class Semigroup, class Monoid
   )
 import Data.Group (class Group, ginverse)
@@ -89,54 +87,60 @@ instance monoidDrawing :: Monoid Drawing where
     , maxY : Nothing
     }
 
-type Point2D = { x :: Horizontal, y :: Vertical }
+data Point2D = Point2D Horizontal Vertical
 
-type Offset = { x :: Horizontal, y :: Vertical }
+instance semigroupPoint2D :: Semigroup Point2D where
+  append (Point2D x1 y1) (Point2D x2 y2) = Point2D (x1 <> x2) (y1 <> y2)
 
-type WO x = Offset -> x
+instance monoidPoint2D :: Monoid Point2D where
+  mempty = Point2D mempty mempty
 
-point2D :: Horizontal -> Vertical -> WO Point2D
-point2D x y offset =
-  { x : offset.x <> x
-  , y : offset.y <> y
-  }
+instance groupPoint2D :: Group Point2D where
+  ginverse (Point2D x y) = Point2D (ginverse x) (ginverse y)
 
-moveOffset :: forall x. Offset -> WO x -> WO x
-moveOffset p f offset = f $ { x : offset.x <> p.x, y : offset.y <> p.y }
+type Offset x = Point2D -> x
+
+point2D :: Horizontal -> Vertical -> Offset Point2D
+point2D x y offset = offset <> Point2D x y
+
+moveOffset :: forall x. Point2D -> Offset x -> Offset x
+moveOffset p f offset = f $ offset <> p
 
 line :: Point2D -> Point2D -> Number -> Drawing
-line p1 p2 width = Drawing
+line (Point2D x1 y1) (Point2D x2 y2) width = Drawing
   { elements: [SE.line
-    [ SA.x1 $ fromHorizontal p1.x
-    , SA.x2 $ fromHorizontal p2.x
-    , SA.y1 $ fromVertical p1.y
-    , SA.y2 $ fromVertical p2.y
+    [ SA.x1 $ fromHorizontal x1
+    , SA.x2 $ fromHorizontal x2
+    , SA.y1 $ fromVertical y1
+    , SA.y2 $ fromVertical y2
     , SA.stroke $ SA.Named "black"
     , SA.strokeWidth width
     , SA.strokeLineCap LineCapRound
     ]]
-  , minX : Just $ Min $ min p1.x p2.x </> Horizontal width
-  , maxX : Just $ Max $ max p1.x p2.x <> Horizontal width
-  , minY : Just $ Min $ min p1.y p2.y </> Vertical width
-  , maxY : Just $ Max $ max p1.y p2.y <> Vertical width
+  , minX : Just $ Min $ min x1 x2 </> Horizontal width
+  , maxX : Just $ Max $ max x1 x2 <> Horizontal width
+  , minY : Just $ Min $ min y1 y2 </> Vertical width
+  , maxY : Just $ Max $ max y1 y2 <> Vertical width
   }
 
 
 circle :: Point2D -> Number -> Number -> Drawing
-circle center radius width = Drawing
+circle (Point2D x y) radius width = Drawing
   { elements : [SE.circle
-    [ SA.cx $ fromHorizontal center.x
-    , SA.cy $ fromVertical center.y
+    [ SA.cx $ fromHorizontal x
+    , SA.cy $ fromVertical y
     , SA.r radius
     , SA.stroke $ SA.Named "black"
     , SA.strokeWidth width
     , SA.fill SA.NoColor
     ]]
-  , minX : Just $ Min $ center.x </> Horizontal (radius + width)
-  , maxX : Just $ Max $ center.x <> Horizontal (radius + width)
-  , minY : Just $ Min $ center.y </> Vertical (radius + width)
-  , maxY : Just $ Max $ center.y <> Vertical (radius + width)
+  , minX : Just $ Min $ x </> Horizontal fullRadius
+  , maxX : Just $ Max $ x <> Horizontal fullRadius
+  , minY : Just $ Min $ y </> Vertical fullRadius
+  , maxY : Just $ Max $ y <> Vertical fullRadius
   }
+  where
+  fullRadius = radius + width
 
 renderDrawing :: forall w i. Drawing -> Leaf SVGsvg w i
 renderDrawing (Drawing d) attrs = SE.svg
@@ -155,6 +159,3 @@ renderDrawing (Drawing d) attrs = SE.svg
   minY = case d.minY of
     Nothing -> 0.0
     Just (Min (Vertical y)) -> y
-
-simpleOffset :: Offset
-simpleOffset = {x : mempty, y : mempty}
