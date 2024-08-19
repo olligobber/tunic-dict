@@ -10,6 +10,7 @@ package:
     - maybe
     - halogen-svg-elems
     - foldable-traversable
+    - group
   test:
     main: Test.Main
     dependencies:

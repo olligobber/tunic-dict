@@ -13,7 +13,7 @@ import Halogen.Svg.Attributes as SA
 
 import Tunic.Glyph
 import Tunic.Drawing (drawWord)
-import Drawing (simpleScaleOffset, renderDrawing, rescale)
+import Drawing (simpleOffset, renderDrawing)
 
 main :: Effect Unit
 main = HA.runHalogenAff $ HA.awaitBody >>= runUI component unit
@@ -64,7 +64,7 @@ component = H.mkComponent
   , render : pure $ HH.div [] $
     [HH.text "Let's go on "] <>
     intercalate [HH.text " "] (map
-      (\w -> [renderDrawing (rescale 18.0 (drawWord w) simpleScaleOffset) [SA.class_ $ HH.ClassName "inlinesvg"]])
+      (\w -> [renderDrawing (drawWord w simpleOffset) [SA.class_ $ HH.ClassName "inlinesvg"]])
       myWords
       )
     <>

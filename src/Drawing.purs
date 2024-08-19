@@ -1,22 +1,23 @@
 module Drawing
   ( Drawing
+  , Horizontal(..)
+  , Vertical(..)
   , Point2D
-  , ScaleOffset
-  , WSO
+  , Offset
+  , WO
   , point2D
-  , scaled
   , moveOffset
-  , rescale
   , line
   , circle
   , renderDrawing
-  , simpleScaleOffset
+  , simpleOffset
 ) where
 
 import Prelude
-  ( ($), (<>), (+), (*), (/), (-), map, min, max
-  , class Semigroup, class Monoid
+  ( ($), (<>), (+), (*), (/), (-), map, min, max, negate, mempty
+  , class Eq, class Ord, class Semigroup, class Monoid
   )
+import Data.Group (class Group, ginverse)
 import Data.Maybe (Maybe(..))
 import Data.Ord.Min (Min(..))
 import Data.Ord.Max (Max(..))
@@ -26,12 +27,48 @@ import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Attributes.StrokeLineCap (StrokeLineCap(LineCapRound))
 import Halogen.Svg.Indexed (SVGsvg)
 
+gsubtract :: forall g. Group g => g -> g -> g
+gsubtract a b = a <> ginverse b
+infixr 6 gsubtract as </>
+
+newtype Horizontal = Horizontal Number
+fromHorizontal :: Horizontal -> Number
+fromHorizontal (Horizontal x) = x
+
+derive instance eqHorizontal :: Eq Horizontal
+derive instance ordHorizontal :: Ord Horizontal
+
+instance semigroupHorizontal :: Semigroup Horizontal where
+  append (Horizontal a) (Horizontal b) = Horizontal $ a + b
+
+instance monoidHorizontal :: Monoid Horizontal where
+  mempty = Horizontal 0.0
+
+instance groupHorizontal :: Group Horizontal where
+  ginverse (Horizontal x) = Horizontal $ negate x
+
+newtype Vertical = Vertical Number
+fromVertical :: Vertical -> Number
+fromVertical (Vertical x) = x
+
+derive instance eqVertical :: Eq Vertical
+derive instance ordVertical :: Ord Vertical
+
+instance semigroupVertical :: Semigroup Vertical where
+  append (Vertical a) (Vertical b) = Vertical $ a + b
+
+instance monoidVertical :: Monoid Vertical where
+  mempty = Vertical 0.0
+
+instance groupVertical :: Group Vertical where
+  ginverse (Vertical x) = Vertical $ negate x
+
 data Drawing = Drawing
   { elements :: Array PlainHTML
-  , minX :: Maybe (Min Number)
-  , maxX :: Maybe (Max Number)
-  , minY :: Maybe (Min Number)
-  , maxY :: Maybe (Max Number)
+  , minX :: Maybe (Min Horizontal)
+  , maxX :: Maybe (Max Horizontal)
+  , minY :: Maybe (Min Vertical)
+  , maxY :: Maybe (Max Vertical)
   }
 
 instance semigroupDrawing :: Semigroup Drawing where
@@ -52,86 +89,72 @@ instance monoidDrawing :: Monoid Drawing where
     , maxY : Nothing
     }
 
-type Point2D = { x :: Number, y :: Number }
+type Point2D = { x :: Horizontal, y :: Vertical }
 
-type ScaleOffset = { x :: Number, y :: Number, s :: Number }
+type Offset = { x :: Horizontal, y :: Vertical }
 
-type WSO x = ScaleOffset -> x
+type WO x = Offset -> x
 
-point2D :: Number -> Number -> WSO Point2D
-point2D x y os =
-  { x : os.s * (os.x + x)
-  , y : os.s * (os.y + y)
+point2D :: Horizontal -> Vertical -> WO Point2D
+point2D x y offset =
+  { x : offset.x <> x
+  , y : offset.y <> y
   }
 
-scaled :: Number -> WSO Number
-scaled n os = os.s * n
-
-moveOffset :: forall x. Point2D -> WSO x -> WSO x
-moveOffset p f os = f $ os { x = (os.x + p.x), y = (os.y + p.y) }
-
-rescale :: forall x. Number -> WSO x -> WSO x
-rescale s f os = f
-  { x : os.x / s
-  , y : os.y / s
-  , s : s * os.s
-  }
+moveOffset :: forall x. Offset -> WO x -> WO x
+moveOffset p f offset = f $ { x : offset.x <> p.x, y : offset.y <> p.y }
 
 line :: Point2D -> Point2D -> Number -> Drawing
 line p1 p2 width = Drawing
   { elements: [SE.line
-    [ SA.x1 p1.x
-    , SA.x2 p2.x
-    , SA.y1 p1.y
-    , SA.y2 p2.y
+    [ SA.x1 $ fromHorizontal p1.x
+    , SA.x2 $ fromHorizontal p2.x
+    , SA.y1 $ fromVertical p1.y
+    , SA.y2 $ fromVertical p2.y
     , SA.stroke $ SA.Named "black"
     , SA.strokeWidth width
     , SA.strokeLineCap LineCapRound
     ]]
-  , minX : Just $ Min $ min p1.x p2.x - width
-  , maxX : Just $ Max $ max p1.x p2.x + width
-  , minY : Just $ Min $ min p1.y p2.y - width
-  , maxY : Just $ Max $ max p1.y p2.y + width
+  , minX : Just $ Min $ min p1.x p2.x </> Horizontal width
+  , maxX : Just $ Max $ max p1.x p2.x <> Horizontal width
+  , minY : Just $ Min $ min p1.y p2.y </> Vertical width
+  , maxY : Just $ Max $ max p1.y p2.y <> Vertical width
   }
 
 
 circle :: Point2D -> Number -> Number -> Drawing
 circle center radius width = Drawing
   { elements : [SE.circle
-    [ SA.cx center.x
-    , SA.cy center.y
+    [ SA.cx $ fromHorizontal center.x
+    , SA.cy $ fromVertical center.y
     , SA.r radius
     , SA.stroke $ SA.Named "black"
     , SA.strokeWidth width
     , SA.fill SA.NoColor
     ]]
-  , minX : Just $ Min $ center.x - radius - width
-  , maxX : Just $ Max $ center.x + radius + width
-  , minY : Just $ Min $ center.y - radius - width
-  , maxY : Just $ Max $ center.y + radius + width
+  , minX : Just $ Min $ center.x </> Horizontal (radius + width)
+  , maxX : Just $ Max $ center.x <> Horizontal (radius + width)
+  , minY : Just $ Min $ center.y </> Vertical (radius + width)
+  , maxY : Just $ Max $ center.y <> Vertical (radius + width)
   }
 
 renderDrawing :: forall w i. Drawing -> Leaf SVGsvg w i
 renderDrawing (Drawing d) attrs = SE.svg
-  (
-    [ SA.viewBox minX minY width height
-    , SA.preserveAspectRatio (Just {x_ : SA.Min, y_ : SA.Min}) SA.Meet
-    , SA.width width
-    , SA.height height
-    ] <> attrs
-  )
+  ([SA.viewBox minX minY width height] <> attrs)
   (map fromPlainHTML d.elements)
   where
-  width = difference {min: d.minX, max: d.maxX}
-  height = difference {min: d.minY, max: d.maxY}
-  difference {min: Just (Min a), max: (Just (Max b))} = max 0.0 $ b - a
-  difference _ = 0.0
+  width = fromHorizontal $ difference {min: d.minX, max: d.maxX}
+  height = fromVertical $ difference {min: d.minY, max: d.maxY}
+  difference :: forall t. Group t => Ord t =>
+    {min :: Maybe (Min t), max :: Maybe (Max t)} -> t
+  difference {min: Just (Min a), max: (Just (Max b))} = max mempty $ b </> a
+  difference _ = mempty
   minX = case d.minX of
     Nothing -> 0.0
-    Just (Min x) -> x
+    Just (Min (Horizontal x)) -> x
   minY = case d.minY of
     Nothing -> 0.0
-    Just (Min y) -> y
+    Just (Min (Vertical y)) -> y
 
-simpleScaleOffset :: ScaleOffset
-simpleScaleOffset = {x : 0.0, y : 0.0, s : 1.0}
+simpleOffset :: Offset
+simpleOffset = {x : mempty, y : mempty}

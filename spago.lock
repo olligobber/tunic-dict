@@ -5,6 +5,7 @@ workspace:
       dependencies:
         - effect
         - foldable-traversable
+        - group
         - halogen
         - halogen-svg-elems
         - maybe
@@ -41,6 +42,7 @@ workspace:
         - functions
         - functors
         - gen
+        - group
         - halogen
         - halogen-subscriptions
         - halogen-svg-elems
@@ -907,6 +909,12 @@ packages:
       - tailrec
       - tuples
       - unfoldable
+  group:
+    type: registry
+    version: 4.1.1
+    integrity: sha256-hVoKryLijrNDY2G4yRmgVvBc3pmOGD8HMaCm5zKJUXo=
+    dependencies:
+      - lists
   halogen:
     type: registry
     version: 7.0.0

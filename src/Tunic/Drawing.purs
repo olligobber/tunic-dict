@@ -3,102 +3,95 @@ module Tunic.Drawing
   , drawWord
 ) where
 
-import Prelude ((<$>), (<*>), (<>), (>>>), ($), (/))
+import Prelude ((<$>), (<*>), (<>), (>>>), ($), (*), mempty, pure)
 import Data.Array (mapWithIndex)
 import Data.Foldable (fold, foldMap)
 import Data.Int (toNumber)
 
 import Drawing
-  ( Drawing, WSO, Point2D
-  , point2D, scaled, rescale, moveOffset, line, circle
+  ( Drawing, WO, Vertical(..), Horizontal(..)
+  , point2D, moveOffset, line, circle
   )
 import Tunic.Glyph
   ( Segment(..), ConsonantSegment(..), VowelSegment(..), CircSegment(..)
   , Glyph, Word
   )
 
-topBackCorner :: WSO Point2D
-topBackCorner = point2D 7.0 1.0
+leftX :: Horizontal
+leftX = Horizontal 0.0
 
-topLeftCorner :: WSO Point2D
-topLeftCorner = point2D 1.0 5.0
+middleX :: Horizontal
+middleX = Horizontal 6.0
 
-topRightCorner :: WSO Point2D
-topRightCorner = point2D 13.0 5.0
+rightX :: Horizontal
+rightX = Horizontal 12.0
 
-topFrontCorner :: WSO Point2D
-topFrontCorner = point2D 7.0 9.0
+topCornerY :: Vertical
+topCornerY = Vertical 0.0
 
-bottomBackCorner :: WSO Point2D
-bottomBackCorner = point2D 7.0 13.0
+topFaceY :: Vertical
+topFaceY = Vertical 4.0
 
-bottomLeftCorner :: WSO Point2D
-bottomLeftCorner = point2D 1.0 17.0
+frontCornerY :: Vertical
+frontCornerY = Vertical 8.0
 
-bottomRightCorner :: WSO Point2D
-bottomRightCorner = point2D 13.0 17.0
+lineY :: Vertical
+lineY = Vertical 10.0
 
-bottomFrontCorner :: WSO Point2D
-bottomFrontCorner = point2D 7.0 21.0
+belowLineY :: Vertical
+belowLineY = Vertical 12.0
 
-leftEdgeAbove :: WSO Point2D
-leftEdgeAbove = point2D 1.0 11.0
+bottomFaceY :: Vertical
+bottomFaceY = Vertical 16.0
 
-leftEdgeBelow :: WSO Point2D
-leftEdgeBelow = point2D 1.0 13.0
+bottomCornerY :: Vertical
+bottomCornerY = Vertical 20.0
 
-middleEdgeAbove :: WSO Point2D
-middleEdgeAbove = point2D 7.0 11.0
+circleCenterY :: Vertical
+circleCenterY = Vertical 21.0
 
-middleEdgeBelow :: WSO Point2D
-middleEdgeBelow = point2D 7.0 13.0
+strokeWidth :: WO Number
+strokeWidth = pure 1.0
 
-rightEdgeAbove :: WSO Point2D
-rightEdgeAbove = point2D 13.0 11.0
+circleRadius :: WO Number
+circleRadius = pure 1.0
 
-circCenter :: WSO Point2D
-circCenter = point2D 7.0 22.0
-
-strokeWidth :: WSO Number
-strokeWidth = scaled 1.0
-
-circleRadius :: WSO Number
-circleRadius = scaled 1.0
-
-drawSegment :: Segment -> WSO Drawing
+drawSegment :: Segment -> WO Drawing
 drawSegment (Vowel TopRight) =
-  line <$> topBackCorner <*> topRightCorner <*> strokeWidth
+  line <$> point2D middleX topCornerY <*> point2D rightX topFaceY <*> strokeWidth
 drawSegment (Vowel BottomRight) =
-  line <$> bottomRightCorner <*> bottomFrontCorner <*> strokeWidth
+  line <$> point2D rightX bottomFaceY <*> point2D middleX bottomCornerY <*> strokeWidth
 drawSegment (Vowel BottomLeft) =
-  line <$> bottomFrontCorner <*> bottomLeftCorner <*> strokeWidth
+  line <$> point2D middleX bottomCornerY <*> point2D leftX bottomFaceY <*> strokeWidth
 drawSegment (Vowel Left) =
-  (line <$> topLeftCorner <*> leftEdgeAbove <*> strokeWidth) <>
-  (line <$> leftEdgeBelow <*> bottomLeftCorner <*> strokeWidth)
+  (line <$> point2D leftX topFaceY <*> point2D leftX lineY <*> strokeWidth) <>
+  (line <$> point2D leftX belowLineY <*> point2D leftX bottomFaceY <*> strokeWidth)
 drawSegment (Vowel TopLeft) =
-  line <$> topBackCorner <*> topLeftCorner <*> strokeWidth
+  line <$> point2D middleX topCornerY <*> point2D leftX topFaceY <*> strokeWidth
 drawSegment (Consonant Up) =
-  line <$> topBackCorner <*> middleEdgeAbove <*> strokeWidth
+  line <$> point2D middleX topCornerY <*> point2D middleX lineY <*> strokeWidth
 drawSegment (Consonant UpRight) =
-  line <$> topFrontCorner <*> topRightCorner <*> strokeWidth
+  line <$> point2D middleX frontCornerY <*> point2D rightX topFaceY <*> strokeWidth
 drawSegment (Consonant DownRight) =
-  line <$> bottomBackCorner <*> bottomRightCorner <*> strokeWidth
+  line <$> point2D middleX belowLineY <*> point2D rightX bottomFaceY <*> strokeWidth
 drawSegment (Consonant Down) =
-  (line <$> topFrontCorner <*> middleEdgeAbove <*> strokeWidth) <>
-  (line <$> middleEdgeBelow <*> bottomFrontCorner <*> strokeWidth)
+  (line <$> point2D middleX frontCornerY <*> point2D middleX lineY <*> strokeWidth) <>
+  (line <$> point2D middleX belowLineY <*> point2D middleX bottomCornerY <*> strokeWidth)
 drawSegment (Consonant DownLeft) =
-  line <$> bottomBackCorner <*> bottomLeftCorner <*> strokeWidth
+  line <$> point2D middleX belowLineY <*> point2D leftX bottomFaceY <*> strokeWidth
 drawSegment (Consonant UpLeft) =
-  line <$> topFrontCorner <*> topLeftCorner<*> strokeWidth
+  line <$> point2D middleX frontCornerY <*> point2D leftX topFaceY<*> strokeWidth
 drawSegment (Circ CircSegment) =
-  circle <$> circCenter <*> circleRadius <*> strokeWidth
+  circle <$> point2D middleX circleCenterY <*> circleRadius <*> strokeWidth
 
-drawGlyph :: Glyph -> WSO Drawing
-drawGlyph glyph = rescale (1.0 / 24.0) $
+drawGlyph :: Glyph -> WO Drawing
+drawGlyph glyph =
   foldMap drawSegment glyph <>
-  (line <$> leftEdgeAbove <*> rightEdgeAbove <*> scaled 1.0)
+  (line <$> point2D leftX lineY <*> point2D rightX lineY <*> strokeWidth)
 
-drawWord :: Word -> WSO Drawing
+drawWord :: Word -> WO Drawing
 drawWord = mapWithIndex drawWithIndex >>> fold
   where
-  drawWithIndex i g = moveOffset { x : toNumber i / 2.0, y : 0.0 } $ drawGlyph g
+  drawWithIndex i g = moveOffset
+    { x : Horizontal $ 12.0 * toNumber i, y : mempty }
+    (drawGlyph g)
