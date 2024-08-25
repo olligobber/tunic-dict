@@ -6,6 +6,7 @@ module Tunic.Glyph
   , encodeSegment
   , decodeSegment
   , Glyph
+  , fullGlyph
   , VowelPart
   , ConsonantPart
   , Sound
@@ -20,9 +21,11 @@ module Tunic.Glyph
 
 import Prelude (class Eq, class Ord, ($), pure, (<>), show, (>>>), map, bind)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Data.Foldable (class Foldable, foldMap)
 import Data.Maybe (Maybe(..))
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Set.NonEmpty as Set
+import Data.Set (fromFoldable)
 import Data.String.CodeUnits as String
 import Data.Traversable (traverse)
 
@@ -92,6 +95,21 @@ decodeSegment char = throwError $ "Unknown segment: " <> show char
 
 type Glyph = NonEmptySet Segment
 
+fullGlyph :: Glyph
+fullGlyph = Set.cons (Circ CircSegment) $ fromFoldable
+  [ Vowel TopRight
+  , Vowel BottomRight
+  , Vowel BottomLeft
+  , Vowel Left
+  , Vowel TopLeft
+  , Consonant Up
+  , Consonant UpRight
+  , Consonant DownRight
+  , Consonant Down
+  , Consonant DownLeft
+  , Consonant UpLeft
+  ]
+
 type VowelPart = NonEmptySet VowelSegment
 
 type ConsonantPart = NonEmptySet ConsonantSegment
@@ -100,8 +118,8 @@ data Sound
   = VowelSound VowelPart
   | ConsonantSound ConsonantPart
 
-encodeGlyph :: Glyph -> String
-encodeGlyph = Set.toUnfoldable >>> map encodeSegment >>> String.fromCharArray
+encodeGlyph :: forall f. Foldable f => f Segment -> String
+encodeGlyph = foldMap (encodeSegment >>> pure) >>> String.fromCharArray
 
 decodeGlyph :: forall m. MonadThrow String m => String -> m Glyph
 decodeGlyph string = do

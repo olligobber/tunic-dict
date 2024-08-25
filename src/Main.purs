@@ -1,22 +1,32 @@
 module Main where
 
-import Prelude (Unit, unit, pure, ($), (>>=), (<>), map)
-import Data.Array (intercalate)
+import Prelude (Unit, pure, ($), (>>=), (<>), (==), mempty)
+-- import Data.Array (intercalate)
+-- import Data.Maybe (Maybe(..))
 import Data.Set.NonEmpty (cons)
-import Data.Set (fromFoldable)
+import Data.Set (Set, fromFoldable)
+import Data.Set as S
 import Effect (Effect)
 import Halogen as H
 import Halogen.Aff as HA
 import Halogen.HTML as HH
+-- import Halogen.HTML.Events as HE
+-- import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
 import Halogen.Svg.Attributes as SA
+import Halogen.Svg.Attributes (Color(Named))
+-- import Web.HTML.Common (PropName(PropName))
 
 import Tunic.Glyph
-import Tunic.Drawing (drawWord)
+  ( CircSegment(..), ConsonantSegment(..), Segment(..), VowelSegment(..)
+  , Word, fullGlyph
+  )
+import Tunic.Drawing (drawGlyph, simpleDraw, simpleDrawNoLine)
 import Drawing (renderDrawing)
+import Tunic.Clickable (ClickEvent(..), clickArea)
 
 main :: Effect Unit
-main = HA.runHalogenAff $ HA.awaitBody >>= runUI component unit
+main = HA.runHalogenAff $ HA.awaitBody >>= runUI component S.empty
 
 myWords :: Array Word
 myWords =
@@ -58,16 +68,43 @@ myWords =
     ]
   ]
 
-component :: forall q m. H.Component q Unit Unit m
+-- component :: forall q m. H.Component q Unit Unit m
+-- component = H.mkComponent
+--   { initialState : pure unit
+--   , render : pure $ HH.div [] $
+--     [HH.text "Let's go on "] <>
+--     intercalate [HH.text " "] (map
+--       (\w -> [renderDrawing (drawWord w) [SA.class_ $ HH.ClassName "inlinesvg"]])
+--       myWords
+--       )
+--     <>
+--     [HH.text "!"]
+--   , eval : H.mkEval $ H.defaultEval
+--   }
+
+type State = { selected :: Set Segment, hovered :: Set Segment }
+initialState :: State
+initialState = { selected : S.empty, hovered : S.empty }
+
+component :: forall q m. H.Component q (Set Segment) ClickEvent m
 component = H.mkComponent
-  { initialState : pure unit
-  , render : pure $ HH.div [] $
-    [HH.text "Let's go on "] <>
-    intercalate [HH.text " "] (map
-      (\w -> [renderDrawing (drawWord w) [SA.class_ $ HH.ClassName "inlinesvg"]])
-      myWords
-      )
-    <>
-    [HH.text "!"]
-  , eval : H.mkEval $ H.defaultEval
+  { initialState : pure initialState
+  , render : \state -> HH.div_ [renderDrawing
+    (drawGlyph (simpleDrawNoLine $ Named "silver") fullGlyph mempty <>
+    drawGlyph (simpleDraw $ Named "black") state.selected mempty <>
+    drawGlyph (simpleDrawNoLine $ Named "red") state.hovered mempty <>
+    clickArea)
+    [SA.height 200.0]
+    ]
+  , eval : H.mkEval $ H.defaultEval { handleAction = \m -> case m of
+      Hover s -> H.modify_ $ _ { hovered = s }
+      Unhover s -> H.modify_ $ \t ->
+        if t.hovered == s then
+          t { hovered = S.empty }
+        else
+          t
+      Click s -> H.modify_ $ \t -> t { selected =
+        (S.difference t.selected s) <> (S.difference s t.selected)
+      }
+    }
   }

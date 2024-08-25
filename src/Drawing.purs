@@ -1,29 +1,39 @@
 module Drawing
-  ( Drawing
+  ( DrawingProps(..)
+  , Drawing
   , Horizontal(..)
+  , fromHorizontal
   , Vertical(..)
+  , fromVertical
   , Point2D(..)
   , Offset
+  , withOffset
   , point2D
   , moveOffset
   , line
   , circle
+  , withoutViewport
   , renderDrawing
 ) where
 
 import Prelude
-  ( ($), (<>), (+), map, min, max, negate, mempty
+  ( ($), (<>), (+), (&&), (==), min, max, negate, mempty, compare
   , class Eq, class Ord, class Semigroup, class Monoid
   )
 import Data.Group (class Group, ginverse)
 import Data.Maybe (Maybe(..))
 import Data.Ord.Min (Min(..))
 import Data.Ord.Max (Max(..))
-import Halogen.HTML (PlainHTML, fromPlainHTML, Leaf)
+import Halogen.HTML (HTML, Leaf, IProp)
 import Halogen.Svg.Elements as SE
+import Halogen.Svg.Attributes (Color)
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Attributes.StrokeLineCap (StrokeLineCap(LineCapRound))
-import Halogen.Svg.Indexed (SVGsvg)
+import Halogen.Svg.Indexed (SVGsvg, GlobalAttributes)
+
+import PointerEvents as U
+
+-- TODO replace all floats with ints and only cast to float at the end
 
 gsubtract :: forall g. Group g => g -> g -> g
 gsubtract a b = a <> ginverse b
@@ -61,15 +71,19 @@ instance monoidVertical :: Monoid Vertical where
 instance groupVertical :: Group Vertical where
   ginverse (Vertical x) = Vertical $ negate x
 
-data Drawing = Drawing
-  { elements :: Array PlainHTML
+newtype DrawingProps i = DrawingProps
+  -- (forall r. Array (IProp (GlobalAttributes r) i))
+  (forall r. Array (IProp (GlobalAttributes (pointerEvents :: String | r)) i))
+
+data Drawing i = Drawing
+  { elements :: forall w. Array (HTML w i)
   , minX :: Maybe (Min Horizontal)
   , maxX :: Maybe (Max Horizontal)
   , minY :: Maybe (Min Vertical)
   , maxY :: Maybe (Max Vertical)
   }
 
-instance semigroupDrawing :: Semigroup Drawing where
+instance semigroupDrawing :: Semigroup (Drawing i) where
   append (Drawing d1) (Drawing d2) = Drawing $
     { elements : d1.elements <> d2.elements
     , minX : d1.minX <> d2.minX
@@ -78,7 +92,7 @@ instance semigroupDrawing :: Semigroup Drawing where
     , maxY : d1.maxY <> d2.maxY
     }
 
-instance monoidDrawing :: Monoid Drawing where
+instance monoidDrawing :: Monoid (Drawing i) where
   mempty = Drawing
     { elements: []
     , minX: Nothing
@@ -88,6 +102,22 @@ instance monoidDrawing :: Monoid Drawing where
     }
 
 data Point2D = Point2D Horizontal Vertical
+
+-- Eq and Ord instances mainly for maps, note they use floats so expect errors
+-- if too much arithmetic is done
+instance eqPoint2D :: Eq Point2D where
+  eq
+    (Point2D (Horizontal x1) (Vertical y1))
+    (Point2D (Horizontal x2) (Vertical y2))
+    =
+    (x1 == x2) && (y1 == y2)
+
+instance ordPoint2D :: Ord Point2D where
+  compare
+    (Point2D (Horizontal x1) (Vertical y1))
+    (Point2D (Horizontal x2) (Vertical y2))
+    =
+    compare [x1, y1] [x2, y2]
 
 instance semigroupPoint2D :: Semigroup Point2D where
   append (Point2D x1 y1) (Point2D x2 y2) = Point2D (x1 <> x2) (y1 <> y2)
@@ -100,52 +130,66 @@ instance groupPoint2D :: Group Point2D where
 
 type Offset x = Point2D -> x
 
+withOffset :: Point2D -> Offset Point2D
+withOffset p offset = p <> offset
+
 point2D :: Horizontal -> Vertical -> Offset Point2D
 point2D x y offset = offset <> Point2D x y
 
 moveOffset :: forall x. Point2D -> Offset x -> Offset x
 moveOffset p f offset = f $ offset <> p
 
-line :: Point2D -> Point2D -> Number -> Drawing
-line (Point2D x1 y1) (Point2D x2 y2) width = Drawing
-  { elements: [SE.line
+line :: forall i.
+  Point2D -> Point2D -> Color -> DrawingProps i -> Drawing i
+line (Point2D x1 y1) (Point2D x2 y2) color (DrawingProps props) = Drawing
+  -- { elements: [SE.line $
+  { elements: [U.line $
     [ SA.x1 $ fromHorizontal x1
     , SA.x2 $ fromHorizontal x2
     , SA.y1 $ fromVertical y1
     , SA.y2 $ fromVertical y2
-    , SA.stroke $ SA.Named "black"
-    , SA.strokeWidth width
+    , SA.stroke color
+    , SA.strokeWidth 1.0
     , SA.strokeLineCap LineCapRound
-    ]]
-  , minX : Just $ Min $ min x1 x2 </> Horizontal width
-  , maxX : Just $ Max $ max x1 x2 <> Horizontal width
-  , minY : Just $ Min $ min y1 y2 </> Vertical width
-  , maxY : Just $ Max $ max y1 y2 <> Vertical width
+    ] <> props]
+  , minX : Just $ Min $ min x1 x2 </> Horizontal 1.0
+  , maxX : Just $ Max $ max x1 x2 <> Horizontal 1.0
+  , minY : Just $ Min $ min y1 y2 </> Vertical 1.0
+  , maxY : Just $ Max $ max y1 y2 <> Vertical 1.0
   }
 
-
-circle :: Point2D -> Number -> Number -> Drawing
-circle (Point2D x y) radius width = Drawing
-  { elements : [SE.circle
+circle :: forall i.
+  Point2D -> Number -> Color -> Color -> DrawingProps i -> Drawing i
+circle (Point2D x y) radius stroke fill (DrawingProps props) = Drawing
+  -- { elements: [SE.circle $
+  { elements : [U.circle $
     [ SA.cx $ fromHorizontal x
     , SA.cy $ fromVertical y
     , SA.r radius
-    , SA.stroke $ SA.Named "black"
-    , SA.strokeWidth width
-    , SA.fill SA.NoColor
-    ]]
+    , SA.stroke stroke
+    , SA.strokeWidth 1.0
+    , SA.fill fill
+    ] <> props]
   , minX : Just $ Min $ x </> Horizontal fullRadius
   , maxX : Just $ Max $ x <> Horizontal fullRadius
   , minY : Just $ Min $ y </> Vertical fullRadius
   , maxY : Just $ Max $ y <> Vertical fullRadius
   }
   where
-  fullRadius = radius + width
+  fullRadius = radius + 1.0
 
-renderDrawing :: forall w i. Drawing -> Leaf SVGsvg w i
+withoutViewport :: forall i. Drawing i -> Drawing i
+withoutViewport (Drawing d) = Drawing $ d
+  { minX = Nothing
+  , maxX = Nothing
+  , minY = Nothing
+  , maxY = Nothing
+  }
+
+renderDrawing :: forall w i. Drawing i -> Leaf SVGsvg w i
 renderDrawing (Drawing d) attrs = SE.svg
   ([SA.viewBox minX minY width height] <> attrs)
-  (map fromPlainHTML d.elements)
+  d.elements
   where
   width = fromHorizontal $ difference {min: d.minX, max: d.maxX}
   height = fromVertical $ difference {min: d.minY, max: d.maxY}
