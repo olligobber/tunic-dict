@@ -22,7 +22,7 @@ import Tunic.Glyph
   , Word, fullGlyph
   )
 import Tunic.Drawing (drawGlyph, simpleDraw, simpleDrawNoLine)
-import Drawing (renderDrawing)
+import Drawing (renderDrawing, group, DrawingProps(..))
 import Tunic.Clickable (ClickEvent(..), clickArea)
 
 main :: Effect Unit
@@ -90,10 +90,12 @@ component :: forall q m. H.Component q (Set Segment) ClickEvent m
 component = H.mkComponent
   { initialState : pure initialState
   , render : \state -> HH.div_ [renderDrawing
-    (drawGlyph (simpleDrawNoLine $ Named "silver") fullGlyph mempty <>
-    drawGlyph (simpleDraw $ Named "black") state.selected mempty <>
-    drawGlyph (simpleDrawNoLine $ Named "red") state.hovered mempty <>
-    clickArea)
+    (group (DrawingProps [])
+      (drawGlyph (simpleDrawNoLine $ Named "silver") fullGlyph mempty <>
+      drawGlyph (simpleDraw $ Named "black") state.selected mempty <>
+      drawGlyph (simpleDrawNoLine $ Named "red") state.hovered mempty
+      ) <>
+    group (DrawingProps []) clickArea)
     [SA.height 200.0]
     ]
   , eval : H.mkEval $ H.defaultEval { handleAction = \m -> case m of

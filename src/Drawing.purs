@@ -13,6 +13,7 @@ module Drawing
   , line
   , circle
   , withoutViewport
+  , group
   , renderDrawing
 ) where
 
@@ -185,6 +186,10 @@ withoutViewport (Drawing d) = Drawing $ d
   , minY = Nothing
   , maxY = Nothing
   }
+
+group :: forall i. DrawingProps i -> Drawing i -> Drawing i
+group (DrawingProps props) (Drawing d) = Drawing $ d
+  { elements = [U.g props d.elements] }
 
 renderDrawing :: forall w i. Drawing i -> Leaf SVGsvg w i
 renderDrawing (Drawing d) attrs = SE.svg
