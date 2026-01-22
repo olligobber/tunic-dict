@@ -1,3 +1,3 @@
 build:
-	spago bundle
+	spago bundle-app
 	spago test
